@@ -45,8 +45,9 @@ def point_for_score(anchor_0_to_10: list[Point], score: float) -> Point:
 
 
 def _load_font(size: int) -> ImageFont.ImageFont:
-    """Try common CJK fonts first, and gracefully fall back."""
-    candidates: Iterable[str] = ("msyh.ttc", "Microsoft YaHei.ttf", "simhei.ttf", "arial.ttf")
+    """Load bundled font first, then fallback to common system fonts."""
+    bundled_font = Path(__file__).resolve().parent / "assets" / "msyh.ttf"
+    candidates: Iterable[str] = (str(bundled_font), "msyh.ttf", "msyh.ttc", "Microsoft YaHei.ttf", "simhei.ttf", "arial.ttf")
     for font_name in candidates:
         try:
             return ImageFont.truetype(font_name, size)
