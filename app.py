@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import tempfile
 import uuid
 from pathlib import Path
@@ -83,6 +84,14 @@ def generate_radar_image(
     return final_img
 
 
+def _build_output_image_component() -> gr.Image:
+    """Create a Gradio image output with backward-compatible kwargs."""
+    kwargs = {"label": "生成结果", "type": "pil"}
+    if "show_download_button" in inspect.signature(gr.Image.__init__).parameters:
+        kwargs["show_download_button"] = True
+    return gr.Image(**kwargs)
+
+
 def build_app() -> gr.Blocks:
     with gr.Blocks(title="AI 雷达图生成器") as demo:
         gr.Markdown("## AI 雷达图生成器\n固定背景模板，上传头像（可选），填写姓名/作品名称/风格类型和分数，一键生成下载图片。")
@@ -108,7 +117,7 @@ def build_app() -> gr.Blocks:
 
         run_btn = gr.Button("生成图片", variant="primary")
 
-        output_image = gr.Image(label="生成结果", type="pil", show_download_button=True)
+        output_image = _build_output_image_component()
 
         run_btn.click(
             fn=generate_radar_image,
