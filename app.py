@@ -23,6 +23,8 @@ DEFAULT_LABEL_POSITIONS = [(858, 745), (1178, 1060), (1178, 1490), (858, 1605), 
 DEFAULT_TITLE_POSITIONS = [(865, 250), (975, 355), (978, 455)]
 DEFAULT_AVATAR_CENTER = (400, 420)
 FIXED_TEMPLATE_PATH = Path("assets/fixed_template.png")
+SCORE_IMAGE_DIR = Path("assets/scores")
+FINAL_SCORE_IMAGE_POSITION = (220, 2000)
 
 
 def _normalize_input_image(source_path: str, target_stem: Path) -> Path:
@@ -67,6 +69,8 @@ def generate_radar_image(
             label_positions=DEFAULT_LABEL_POSITIONS,
             name_title=titles,
             title_positions=DEFAULT_TITLE_POSITIONS,
+            final_score_image_dir=str(SCORE_IMAGE_DIR),
+            final_score_position=FINAL_SCORE_IMAGE_POSITION,
         )
 
         if avatar_file:

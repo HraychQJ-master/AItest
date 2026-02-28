@@ -32,6 +32,7 @@
 - `radar_generator.py`
 - `requirements.txt`
 - `assets/fixed_template.png`
+- `assets/scores/1.png` ... `assets/scores/10.png`
 
 ### 3) 等待自动构建
 
@@ -56,6 +57,7 @@ python app.py
 ## Notes
 
 - 不再上传背景图：应用固定读取 `assets/fixed_template.png` 作为背景。
+- 最终得分优先使用 `assets/scores/{1..10}.png` 贴图；若缺失对应图片则回退为文字。
 - 前端上传头像后会按上传文件名处理，不再依赖类似 `聪.jpg` 的固定文件名。
 - 目前默认锚点坐标、文字坐标、头像中心点是按现有模板配置在 `app.py` 里的常量。
 - 如果你换模板图，需要同步调整这些坐标。
