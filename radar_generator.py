@@ -55,6 +55,27 @@ def _load_font(size: int) -> ImageFont.ImageFont:
     return ImageFont.load_default()
 
 
+def paste_final_score_image(
+    canvas: Image.Image,
+    final_score: int,
+    score_image_dir: str | None,
+    position: Point,
+) -> bool:
+    """Paste a prepared final-score image (1..10) onto canvas; return whether pasted."""
+    if not score_image_dir:
+        return False
+
+    score_int = int(round(final_score))
+    score_int = max(1, min(10, score_int))
+    score_path = Path(score_image_dir) / f"{score_int}.png"
+    if not score_path.exists():
+        return False
+
+    badge = Image.open(score_path).convert("RGBA")
+    canvas.paste(badge, position, badge)
+    return True
+
+
 def draw_radar_by_anchors(
     img_path: str,
     out_path: str,
@@ -67,6 +88,8 @@ def draw_radar_by_anchors(
     fill_rgba: tuple[int, int, int, int] = (255, 140, 0, 110),
     outline_rgba: tuple[int, int, int, int] = (255, 140, 0, 200),
     outline_width: int = 4,
+    final_score_image_dir: str | None = None,
+    final_score_position: Point = (220, 2000),
 ) -> tuple[str, list[Point]]:
     """Draw radar polygon and text labels onto the template image."""
     if len(scores_0_to_10) != 6:
@@ -109,7 +132,8 @@ def draw_radar_by_anchors(
     meta_font = _load_font(50)
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     draw2.text((900, 2692), now, fill=(255, 255, 255, 255), font=meta_font)
-    draw2.text((220, 2000), f"总分: {final_score}", fill=(255, 255, 255, 255), font=title_font)
+    if not paste_final_score_image(out, final_score, final_score_image_dir, final_score_position):
+        draw2.text(final_score_position, f"总分: {final_score}", fill=(255, 255, 255, 255), font=title_font)
 
     out.save(out_path)
     return out_path, points

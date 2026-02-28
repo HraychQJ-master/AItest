@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import tempfile
 import uuid
 from pathlib import Path
@@ -22,21 +23,24 @@ DEFAULT_ANCHORS = [
 DEFAULT_LABEL_POSITIONS = [(858, 745), (1178, 1060), (1178, 1490), (858, 1605), (260, 1490), (260, 1060)]
 DEFAULT_TITLE_POSITIONS = [(865, 250), (975, 355), (978, 455)]
 DEFAULT_AVATAR_CENTER = (400, 420)
+FIXED_TEMPLATE_PATH = Path("assets/fixed_template.png")
+SCORE_IMAGE_DIR = Path("assets/scores")
+FINAL_SCORE_IMAGE_POSITION = (220, 2000)
 
 
-def _normalize_input_image(source_path: str, target: Path) -> Path:
-    """Normalize uploaded image to RGBA while keeping its source file extension."""
+def _normalize_input_image(source_path: str, target_stem: Path) -> Path:
+    """Normalize uploaded image to RGBA PNG to avoid JPEG alpha/save issues."""
+    target = target_stem.with_suffix(".png")
     with Image.open(source_path) as image:
         image.convert("RGBA").save(target)
     return target
 
 
 def generate_radar_image(
-    template_file: str,
     avatar_file: str | None,
-    title_1: str,
-    title_2: str,
-    title_3: str,
+    name: str,
+    work_title: str,
+    style_type: str,
     score_1: float,
     score_2: float,
     score_3: float,
@@ -44,18 +48,17 @@ def generate_radar_image(
     score_5: float,
     score_6: float,
     final_score: float,
-) -> tuple[Image.Image, str]:
-    if not template_file:
-        raise gr.Error("请先上传雷达图背景模板图片。")
+) -> Image.Image:
+    if not FIXED_TEMPLATE_PATH.exists():
+        raise gr.Error(f"固定背景图不存在: {FIXED_TEMPLATE_PATH}。请把模板图放到该路径。")
 
-    titles = [title_1.strip(), title_2.strip(), title_3.strip()]
+    titles = [name.strip(), work_title.strip(), style_type.strip()]
     scores = [score_1, score_2, score_3, score_4, score_5, score_6]
 
     with tempfile.TemporaryDirectory(prefix="radar_app_") as tmp_dir:
         tmp = Path(tmp_dir)
 
-        template_name = Path(template_file).name
-        template_path = _normalize_input_image(template_file, tmp / template_name)
+        template_path = _normalize_input_image(str(FIXED_TEMPLATE_PATH), tmp / "fixed_template")
         output_path = tmp / f"result_{uuid.uuid4().hex}.png"
 
         draw_radar_by_anchors(
@@ -67,32 +70,38 @@ def generate_radar_image(
             label_positions=DEFAULT_LABEL_POSITIONS,
             name_title=titles,
             title_positions=DEFAULT_TITLE_POSITIONS,
+            final_score_image_dir=str(SCORE_IMAGE_DIR),
+            final_score_position=FINAL_SCORE_IMAGE_POSITION,
         )
 
         if avatar_file:
-            avatar_name = Path(avatar_file).name
-            avatar_path = _normalize_input_image(avatar_file, tmp / avatar_name)
+            avatar_stem = Path(avatar_file).stem
+            avatar_path = _normalize_input_image(avatar_file, tmp / avatar_stem)
             add_avatar(str(output_path), str(avatar_path), center=DEFAULT_AVATAR_CENTER, size=290, radius=43)
 
         final_img = Image.open(output_path).convert("RGBA")
-        persist_file = Path(tempfile.gettempdir()) / f"radar_output_{uuid.uuid4().hex}.png"
-        final_img.save(persist_file)
 
-    return final_img, str(persist_file)
+    return final_img
+
+
+def _build_output_image_component() -> gr.Image:
+    """Create a Gradio image output with backward-compatible kwargs."""
+    kwargs = {"label": "生成结果", "type": "pil"}
+    if "show_download_button" in inspect.signature(gr.Image.__init__).parameters:
+        kwargs["show_download_button"] = True
+    return gr.Image(**kwargs)
 
 
 def build_app() -> gr.Blocks:
     with gr.Blocks(title="AI 雷达图生成器") as demo:
-        gr.Markdown("## AI 雷达图生成器\n上传模板与头像，输入标题和分数，一键生成下载图片。")
+        gr.Markdown("## AI 雷达图生成器\n固定背景模板，上传头像（可选），填写姓名/作品名称/风格类型和分数，一键生成下载图片。")
+
+        avatar_file = gr.File(label="头像（可选）", file_types=["image"], type="filepath")
 
         with gr.Row():
-            template_file = gr.File(label="背景模板图（必传）", file_types=["image"], type="filepath")
-            avatar_file = gr.File(label="头像（可选）", file_types=["image"], type="filepath")
-
-        with gr.Row():
-            title_1 = gr.Textbox(label="标题1", value="聪哥")
-            title_2 = gr.Textbox(label="标题2", value="重生50")
-            title_3 = gr.Textbox(label="标题3", value="AI真人剧")
+            name = gr.Textbox(label="姓名", value="")
+            work_title = gr.Textbox(label="作品名称", value="")
+            style_type = gr.Textbox(label="风格类型", value="")
 
         with gr.Row():
             score_1 = gr.Slider(0, 10, value=8, step=0.1, label="剧情")
@@ -108,18 +117,15 @@ def build_app() -> gr.Blocks:
 
         run_btn = gr.Button("生成图片", variant="primary")
 
-        with gr.Row():
-            output_image = gr.Image(label="生成结果", type="pil")
-            output_file = gr.File(label="下载图片")
+        output_image = _build_output_image_component()
 
         run_btn.click(
             fn=generate_radar_image,
             inputs=[
-                template_file,
                 avatar_file,
-                title_1,
-                title_2,
-                title_3,
+                name,
+                work_title,
+                style_type,
                 score_1,
                 score_2,
                 score_3,
@@ -128,7 +134,7 @@ def build_app() -> gr.Blocks:
                 score_6,
                 final_score,
             ],
-            outputs=[output_image, output_file],
+            outputs=output_image,
         )
 
     return demo
