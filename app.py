@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import tempfile
 import uuid
 from pathlib import Path
@@ -47,17 +48,12 @@ def generate_radar_image(
     score_5: float,
     score_6: float,
     final_score: float,
-) -> tuple[Image.Image, str]:
+) -> Image.Image:
     if not FIXED_TEMPLATE_PATH.exists():
         raise gr.Error(f"固定背景图不存在: {FIXED_TEMPLATE_PATH}。请把模板图放到该路径。")
 
     titles = [name.strip(), work_title.strip(), style_type.strip()]
-    raw_scores = [score_1, score_2, score_3, score_4, score_5, score_6]
-    try:
-        scores = [max(0, min(10, int(round(float(v))))) for v in raw_scores]
-        final_score_int = max(0, min(10, int(round(float(final_score)))))
-    except (TypeError, ValueError):
-        raise gr.Error("分数必须是 0~10 的整数。")
+    scores = [score_1, score_2, score_3, score_4, score_5, score_6]
 
     with tempfile.TemporaryDirectory(prefix="radar_app_") as tmp_dir:
         tmp = Path(tmp_dir)
@@ -69,7 +65,7 @@ def generate_radar_image(
             img_path=str(template_path),
             out_path=str(output_path),
             scores_0_to_10=scores,
-            final_score=final_score_int,
+            final_score=int(round(final_score)),
             anchors=DEFAULT_ANCHORS,
             label_positions=DEFAULT_LABEL_POSITIONS,
             name_title=titles,
@@ -84,15 +80,21 @@ def generate_radar_image(
             add_avatar(str(output_path), str(avatar_path), center=DEFAULT_AVATAR_CENTER, size=290, radius=43)
 
         final_img = Image.open(output_path).convert("RGBA")
-        download_path = Path(tempfile.gettempdir()) / f"radar_result_{uuid.uuid4().hex}.png"
-        final_img.save(download_path, format="PNG")
 
-    return final_img, str(download_path)
+    return final_img
+
+
+def _build_output_image_component() -> gr.Image:
+    """Create a Gradio image output with backward-compatible kwargs."""
+    kwargs = {"label": "生成结果", "type": "pil"}
+    if "show_download_button" in inspect.signature(gr.Image.__init__).parameters:
+        kwargs["show_download_button"] = True
+    return gr.Image(**kwargs)
 
 
 def build_app() -> gr.Blocks:
     with gr.Blocks(title="AI 雷达图生成器") as demo:
-        gr.Markdown("## AI 雷达图生成器\n固定背景模板，上传头像（可选），填写姓名/作品名称/风格类型，手动输入 0~10 整数分数，一键生成下载图片。")
+        gr.Markdown("## AI 雷达图生成器\n固定背景模板，上传头像（可选），填写姓名/作品名称/风格类型和分数，一键生成下载图片。")
 
         avatar_file = gr.File(label="头像（可选）", file_types=["image"], type="filepath")
 
@@ -102,21 +104,20 @@ def build_app() -> gr.Blocks:
             style_type = gr.Textbox(label="风格类型", value="")
 
         with gr.Row():
-            score_1 = gr.Number(label="剧情（0-10整数）", value=None, precision=0)
-            score_2 = gr.Number(label="画面（0-10整数）", value=None, precision=0)
-            score_3 = gr.Number(label="动作（0-10整数）", value=None, precision=0)
+            score_1 = gr.Slider(0, 10, value=8, step=0.1, label="剧情")
+            score_2 = gr.Slider(0, 10, value=9, step=0.1, label="画面")
+            score_3 = gr.Slider(0, 10, value=7, step=0.1, label="动作")
 
         with gr.Row():
-            score_4 = gr.Number(label="镜头（0-10整数）", value=None, precision=0)
-            score_5 = gr.Number(label="配音（0-10整数）", value=None, precision=0)
-            score_6 = gr.Number(label="剪辑（0-10整数）", value=None, precision=0)
+            score_4 = gr.Slider(0, 10, value=7, step=0.1, label="镜头")
+            score_5 = gr.Slider(0, 10, value=10, step=0.1, label="配音")
+            score_6 = gr.Slider(0, 10, value=8, step=0.1, label="剪辑")
 
-        final_score = gr.Number(label="总分（0-10整数）", value=None, precision=0)
+        final_score = gr.Slider(0, 10, value=9, step=0.1, label="总分")
 
         run_btn = gr.Button("生成图片", variant="primary")
 
-        output_image = gr.Image(label="生成结果（缩略图）", type="pil", height=520)
-        output_download = gr.DownloadButton(label="下载PNG", variant="secondary")
+        output_image = _build_output_image_component()
 
         run_btn.click(
             fn=generate_radar_image,
@@ -133,7 +134,7 @@ def build_app() -> gr.Blocks:
                 score_6,
                 final_score,
             ],
-            outputs=[output_image, output_download],
+            outputs=output_image,
         )
 
     return demo
