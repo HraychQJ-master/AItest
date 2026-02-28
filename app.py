@@ -84,6 +84,20 @@ def generate_radar_image(
     return final_img
 
 
+def suggest_final_score(
+    score_1: float,
+    score_2: float,
+    score_3: float,
+    score_4: float,
+    score_5: float,
+    score_6: float,
+) -> float:
+    """Return the rounded average score of six dimensions for convenience."""
+    scores = [score_1, score_2, score_3, score_4, score_5, score_6]
+    avg = sum(scores) / len(scores)
+    return round(avg, 1)
+
+
 def _build_output_image_component() -> gr.Image:
     """Create a Gradio image output with backward-compatible kwargs."""
     kwargs = {"label": "生成结果", "type": "pil"}
@@ -114,6 +128,7 @@ def build_app() -> gr.Blocks:
             score_6 = gr.Slider(0, 10, value=8, step=0.1, label="剪辑")
 
         final_score = gr.Slider(0, 10, value=9, step=0.1, label="总分")
+        suggest_btn = gr.Button("按六维均分自动填写总分")
 
         run_btn = gr.Button("生成图片", variant="primary")
 
@@ -135,6 +150,12 @@ def build_app() -> gr.Blocks:
                 final_score,
             ],
             outputs=output_image,
+        )
+
+        suggest_btn.click(
+            fn=suggest_final_score,
+            inputs=[score_1, score_2, score_3, score_4, score_5, score_6],
+            outputs=final_score,
         )
 
     return demo
